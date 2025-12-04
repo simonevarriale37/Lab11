@@ -1,5 +1,7 @@
 import networkx as nx
 from database.dao import DAO
+from model.rifugio import Rifugio
+from collections import deque
 
 
 class Model:
@@ -13,14 +15,31 @@ class Model:
         Quindi il grafo avrà solo i nodi che appartengono almeno ad una connessione, non tutti quelli disponibili.
         :param year: anno limite fino al quale selezionare le connessioni da includere.
         """
-        # TODO
+
+        # Pulisco il grafo
+        self.G.clear()
+        # Prendo dal database tutte le connessioni <= all'anno
+        connessioni = DAO.rifugi_per_anno(year)
+        for c in connessioni:
+            # Creo due oggetti Rifugio corrispondenti ai due estremi del sentiero
+            r1 = Rifugio(c["id_rifugio1"], c["nome1"], c["localita1"])
+            r2 = Rifugio(c["id_rifugio2"], c["nome2"], c["localita2"])
+            # Aggiungo i nodi al grafo
+            self.G.add_node(r1)
+            self.G.add_node(r2)
+            # Aggiungo un arco
+            self.G.add_edge(r1, r2)
+
+
+
 
     def get_nodes(self):
         """
         Restituisce la lista dei rifugi presenti nel grafo.
         :return: lista dei rifugi presenti nel grafo.
         """
-        # TODO
+
+        return list(self.G.nodes)
 
     def get_num_neighbors(self, node):
         """
@@ -28,14 +47,16 @@ class Model:
         :param node: un rifugio (cioè un nodo del grafo)
         :return: numero di vicini diretti del nodo indicato
         """
-        # TODO
+
+        return len(list(self.G.neighbors(node)))
 
     def get_num_connected_components(self):
         """
         Restituisce il numero di componenti connesse del grafo.
         :return: numero di componenti connesse
         """
-        # TODO
+
+        return nx.number_connected_components(self.G)
 
     def get_reachable(self, start):
         """
@@ -54,4 +75,33 @@ class Model:
         return a
         """
 
-        # TODO
+
+        a = self._get_reachable_bfs_tree(start)
+        b = self._get_reachable_iterative(start)
+        return a
+    def _get_reachable_bfs_tree(self, start):
+        # Creo l'albero a partire dal nodo di partenza
+        tree = nx.bfs_tree(self.G, start)
+        # Estraggo tutti i nodi raggiunti
+        nodes = list(tree.nodes())
+        # Rimuovo il nodo di partenza
+        nodes.remove(start)
+        return nodes
+
+
+    def _get_reachable_iterative(self, start):
+        # Uso un insieme per memorizzare i nodi già visitati
+        visited = set()
+        # Uso deque
+        queue = deque([start])
+        while queue:
+            # Estraggo il nodo più vecchio in queue
+            current = queue.popleft()
+            # controllo i vicini del nodo corrente
+            for n in self.G.neighbors(current):
+                # controllo che il nodo corrente non sia il nodo di partenza e che
+                # non lo abbia già visitato
+                if n not in visited and n != start:
+                    visited.add(n)
+                    queue.append(n)
+        return list(visited)
